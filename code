@@ -1,0 +1,334 @@
+//LOKESH HEGDE 
+
+
+
+
+#include <SoftwareSerial.h>
+#include<Servo.h>
+
+SoftwareSerial bluetoothSerial(0, 1); // RX, TX
+
+// L298n Motor Driver pins.
+#define in1 5
+#define in2 6   
+#define in3 3
+#define in4 11
+#define servoPin 9
+
+Servo myservo;
+#define trigPin 12
+#define echoPin 13
+
+char command;
+int Speed = 100;
+int Speedsec = 0;
+int initialSpeed = 120;
+long duration;
+int distance = 100;
+int safeDistance = 13;
+bool reverseOnly = false;
+bool avoid_mode = false;
+char avoid_cmd = 'X';
+char manual_cmd = 'V';
+int servoFront = 90;
+int servoRight = 0;
+int servoLeft = 180;
+int halfTime = 720;
+
+
+void setup() {
+    myservo.attach(servoPin);
+    // setup motor pins
+    pinMode(in1, OUTPUT);
+    pinMode(in2, OUTPUT);
+    pinMode(in3, OUTPUT);
+    pinMode(in4, OUTPUT);
+
+    pinMode(trigPin, OUTPUT);
+    pinMode(echoPin, INPUT);
+
+    bluetoothSerial.begin(9600);
+}
+
+void loop() {
+    manual();
+    automatic();
+}
+
+
+void manual() {
+    if (avoid_mode){
+        return;
+    }
+
+    distance = calculateDistance();
+    
+    if (distance < safeDistance) {
+        reverseOnly = true;
+        back();
+        delay(100);
+        Stop();
+    }
+    else {
+        reverseOnly = false;
+    }
+
+    if (bluetoothSerial.available() > 0) {
+        command = bluetoothSerial.read();
+        Stop(); // Initialize with motors stopped.
+
+        if (command == avoid_cmd){
+            avoid_mode = true;
+            return;
+        }
+
+        if (reverseOnly) {
+            drive_back();
+        } else {
+            drive();
+        }
+    }
+
+}
+
+void automatic() {
+    int distFront, distLeft, distRight;
+    if (!avoid_mode){
+        return;
+    }
+
+    if (bluetoothSerial.available() > 0) {
+        command = bluetoothSerial.read();
+        if (command == manual_cmd){
+            avoid_mode = false;
+            Stop(); 
+            return;
+        }
+    }
+
+    distFront = calcFrontDist();
+    if (safe(distFront)) {
+        forward();
+    }
+
+    else {
+         Stop();
+         back();
+         delay(200);
+         Stop();
+        distLeft = calcLeftDist();
+        distRight = calcRightDist();
+        delay(10);
+    
+        if (safe(distLeft)&&safe(distRight)) {
+            if (distLeft > distRight) {
+                left();
+            }
+            else {
+                right();
+            }
+        }
+
+        else if (safe(distLeft)){
+            left();
+        }
+
+        else if (safe(distRight)) {
+            right();
+        }
+
+        else {
+            turnaround();
+        }
+    }
+
+}
+void forward() {
+    analogWrite(in1, Speed);
+    analogWrite(in2, LOW);
+    analogWrite(in3, Speed);
+    analogWrite(in4, LOW);
+}
+
+
+
+void back() {
+    analogWrite(in1, LOW);
+    analogWrite(in2, Speed);
+    analogWrite(in3, LOW);
+    analogWrite(in4, Speed);
+}
+
+
+void left() {
+    analogWrite(in1, Speed);
+    analogWrite(in2, LOW);
+    analogWrite(in3, LOW);
+    analogWrite(in4, Speed);
+    if (avoid_mode){
+        delay(halfTime);
+    }
+}
+
+
+
+void right() {
+    analogWrite(in1, LOW);
+    analogWrite(in2, Speed);
+    analogWrite(in3, Speed);
+    analogWrite(in4, LOW);
+    if (avoid_mode){
+        delay(halfTime);
+    }
+}
+
+
+
+void forwardleft() {
+    analogWrite(in1, LOW);
+    analogWrite(in2, LOW);
+    analogWrite(in3, Speed);
+    analogWrite(in4, LOW);
+}
+
+
+void forwardright() {
+    analogWrite(in1, Speed);
+    analogWrite(in2, LOW);
+    analogWrite(in3, LOW);
+    analogWrite(in4, LOW);
+}
+
+
+void backwardleft() {
+    analogWrite(in1, LOW);
+    analogWrite(in2, LOW);
+    analogWrite(in3, LOW);
+    analogWrite(in4, Speed);
+}
+
+
+void backwardright() {
+    analogWrite(in1, LOW);
+    analogWrite(in2, Speed);
+    analogWrite(in3, LOW);
+    analogWrite(in4, LOW);
+}
+
+
+void Stop() {
+  analogWrite(in1, 0);
+  analogWrite(in2, 0);
+  analogWrite(in3, 0);
+  analogWrite(in4, 0);
+}
+
+
+void turnaround() {
+    right();
+    delay(halfTime);
+}
+
+int calculateDistance() {
+    int dist;
+    digitalWrite(trigPin, LOW);
+    delayMicroseconds(2);
+    digitalWrite(trigPin, HIGH);
+    delayMicroseconds(10);
+    digitalWrite(trigPin, LOW);
+    duration = pulseIn(echoPin, HIGH);
+    dist = duration * 0.034 / 2; // Convert the time to distance in centimeters
+    return dist;
+}
+
+void updateSpeed() {
+    switch (command) {
+        case '0':  // Speed = 100
+            Speed = 100;
+
+            break;
+
+            case '1':
+            Speed=120;
+            break;
+
+            case '5':
+            Speed=150;
+            break;
+        // ... (rest of your speed cases)
+    }
+}
+
+void drive() {
+    switch (command) {
+        case 'F':
+            forward();
+            break;
+        case 'B':
+            back();
+            break;
+        case 'R':
+            left();
+            break;
+        case 'L':
+            right();
+            break;
+        case 'G':
+            forwardleft();
+            break;
+        case 'I':
+            forwardright();
+            break;
+        case 'H':
+            backwardleft();
+            break;
+        case 'J':
+            backwardright();
+            break;
+        default:
+            updateSpeed();
+            break;
+    }
+}
+
+void drive_back() {
+    switch (command) {
+        case 'B':
+            back();
+            break;
+        default:
+            updateSpeed();
+            break;
+    }
+}
+
+int calcFrontDist() {
+    int dist;
+    myservo.write(servoFront);
+    delay(1000);
+    dist = calculateDistance();
+    return dist;
+}
+
+
+int calcLeftDist() {
+    int dist;
+    myservo.write(servoLeft);
+    delay(1000);
+    dist = calculateDistance();
+    return dist;
+}
+
+
+int calcRightDist() {
+    int dist;
+    myservo.write(servoRight);
+    delay(1000);
+    dist = calculateDistance();
+    return dist;
+}
+
+//Lokesh hegde 
+bool safe(int dist) {
+    return (dist > safeDistance);   
+}
