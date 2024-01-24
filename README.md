@@ -29,3 +29,6 @@ based on feedback from the ultrasonic sensor.
 smart car
 
 ![image](https://github.com/Lokeshdh46/Arduino-smart-car/assets/111194420/d62db4cf-8326-441d-8646-fd78d709edee)
+
+
+all other information is given in report
