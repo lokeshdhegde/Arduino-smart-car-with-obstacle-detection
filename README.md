@@ -25,3 +25,7 @@ this data to detect obstacles.
 to adjust the smart car's direction and avoid the obstacle.
  - The smart car autonomously navigates its environment, making real-time decisions
 based on feedback from the ultrasonic sensor.
+
+smart car
+
+![image](https://github.com/Lokeshdh46/Arduino-smart-car/assets/111194420/d62db4cf-8326-441d-8646-fd78d709edee)
